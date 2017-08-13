@@ -23,9 +23,9 @@ class SharingPage extends Component {
 
     if(shares.count() > 0) {
       return shares.map((share : Share) => {
-        const author = share.author
-          ? contactList.findContact(share.author)
-          : profile
+        const author = share.isAuthor
+          ? profile
+          : contactList.findContactInDirectory(share.authorPubkey)
 
         return <CompactShare
           key={share.id}
@@ -49,7 +49,7 @@ class SharingPage extends Component {
     return (
       <div className={styles.wrapper}>
         <div className={styles.list} >
-          <TextField label='Search' onChange={this.props.onSearchChange} />
+          <TextField label='Search' fullWidth onChange={this.props.onSearchChange} />
           <div className={styles.scroller}>
             { this.renderShares(shares, selectedId) }
           </div>

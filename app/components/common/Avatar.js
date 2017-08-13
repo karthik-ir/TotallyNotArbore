@@ -5,6 +5,10 @@ import Profile from 'models/Profile'
 import Contact from 'models/Contact'
 import Identity from 'models/Identity'
 
+/**
+ * Component that encapsulate Material-ui's Avatar component to render properly
+ * any type of person we can have. If passed null, it render an 'unknow' person.
+ */
 class Avatar extends Component {
 
   props: {
@@ -17,7 +21,6 @@ class Avatar extends Component {
     if(!person) {
       return <MUIAvatar
         {...extra}
-        style={{ pointerEvents: 'none'}}
         alt='Unknow'
       >?</MUIAvatar>
     }
@@ -27,7 +30,6 @@ class Avatar extends Component {
         {...extra}
         src={person.avatarUrl}
         alt={person.identity}
-        style={{ pointerEvents: 'none'}}
       />
     } else {
       return <MUIAvatar {...extra} alt={person.identity}>{person.initials}</MUIAvatar>

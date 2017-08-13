@@ -41,7 +41,11 @@ export function onContactPong(contact: Contact) {
   return async function(dispatch, getState) {
     const state: Store = getState()
     const chatRoomList : ChatRoomList = state.chatRoomList
-    const room : ChatRoom = chatRoomList.findRoom(contact.pubkey)
+    const room : ?ChatRoom = chatRoomList.findRoom(contact.pubkey)
+
+    if(!room) {
+      return
+    }
 
     // TODO:
     // - potentially send multiple time the same message when a contact is online (network overload for nothing)
@@ -50,7 +54,7 @@ export function onContactPong(contact: Contact) {
     // Stop on the first fail
     return await Promise.all(
       room.unAcknoledgedLastDay.map((entry: ChatEntry) => {
-        const data = protocol.message(
+        const data = protocol.chat(
           entry.id,
           state.profile,
           entry.message
@@ -64,10 +68,10 @@ export function onContactPong(contact: Contact) {
 /* Network messages */
 
 const protocol = {
-  message: createAction('MESSAGE',
+  chat: createAction('CHAT',
     (id: string, profile: Profile, message: string) => ({id, from: profile.pubkey, message})
   ),
-  ack: createAction('ACK',
+  chatAck: createAction('CHAT_ACK',
     (id: string, profile: Profile) => ({id, from: profile.pubkey})
   )
 }
@@ -79,8 +83,8 @@ export function subscribe() {
 
     const profile: Profile = getState().profile
     pubsub = createProtocol('chat', profile.chatPubsubTopic, {
-      [protocol.message.toString()]: handleMessage,
-      [protocol.ack.toString()]: handleAck,
+      [protocol.chat.toString()]: handleMessage,
+      [protocol.chatAck.toString()]: handleAck,
     })
 
     await dispatch(pubsub.subscribe())
@@ -97,11 +101,18 @@ export function unsubscribe() {
 function handleMessage(dispatch, getState, payload) {
   const {id, from, message} = payload
 
-  var contact = dispatch(forceFetchProfile(from,getState)).then(function (cont) {
-      contact = cont;
-      console.log('Received \'' + message + '\' from ' + (contact) ? contact.identity : "NO CONTACT")
-      dispatch(priv.chatReceived(contact, id, message))
-      dispatch(sendChatAck(contact, id))
+  const contactList: ContactList = getState().contactList
+  const contact = contactList.findContactInDirectory(from)
+
+  if(!contact) {
+    console.log('Received message from unknow contact ' + from)
+    return
+  }
+
+  console.log('Received \'' + message + '\' from ' + contact.identity)
+  dispatch(priv.chatReceived(contact, id, message))
+  dispatch(sendChatAck(contact, id))
+
 /// #if isElectron
       if (!ipcRenderer.sendSync(mainWindowVisible)) {
         new Notification(contact.identity, {
@@ -117,7 +128,7 @@ function handleAck(dispatch, getState, payload) {
   const {id, from} = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Received ACK from unknow contact ' + from)
@@ -135,7 +146,7 @@ export function sendChat(contact: Contact, message: string) {
     const state: Store = getState()
     const messageId = nextToken()
 
-    const data = protocol.message(
+    const data = protocol.chat(
       messageId,
       state.profile,
       message
@@ -154,7 +165,7 @@ export function sendChatAck(contact?: Contact, id: string) {
     console.log('Sending message ACK ' + id + ' to ' + contact.identity)
 
     const state: Store = getState()
-    const data = protocol.ack(id, state.profile)
+    const data = protocol.chatAck(id, state.profile)
 
     await dispatch(pubsub.send(contact.chatPubsubTopic, data))
   }

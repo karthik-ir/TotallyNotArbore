@@ -24,7 +24,7 @@ class ContactPage extends Component {
     return (
       <div className={styles.wrapper}>
         <div className={styles.list} >
-          <TextField label='Search' onChange={onSearchChange} />
+          <TextField label='Search' fullWidth onChange={onSearchChange} />
           <div className={styles.scroller}>
             <ContactAdder/>
             {
@@ -41,7 +41,7 @@ class ContactPage extends Component {
         </div>
         <div className={styles.details}>
           <div className={styles.scroller}>
-            { selectedPubKey && contacts.contactInSearched(selectedPubKey) && <ContactDetail /> }
+            { selectedPubKey && <ContactDetail /> }
           </div>
         </div>
       </div>

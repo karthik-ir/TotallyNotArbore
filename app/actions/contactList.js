@@ -216,7 +216,7 @@ function handleQueryContacts(dispatch, getState, payload) {
   const { from } = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a contactList query from unknow contact ' + from)
@@ -233,7 +233,7 @@ function handleContactsReply(dispatch, getState, payload) {
   const { from, contacts } = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a contactList from unknow contact ' + from)
@@ -276,7 +276,7 @@ function handlePing(dispatch, getState, payload) {
   const { from, token } = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a ping from unknow contact ' + from)
@@ -294,7 +294,7 @@ function handlePong(dispatch, getState, payload) {
   const { from, token } = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a pong from unknow contact ' + from)
@@ -341,7 +341,7 @@ function handleAddedContactAck(dispatch, getState, payload) {
   const { from } = payload
 
   const contactList: ContactList = getState().contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a added contact ack from unknow contact ' + from)

@@ -3,10 +3,8 @@ import { Record, Map, Set } from 'immutable'
 import Contact from './Contact'
 import Profile from 'models/Profile'
 import ShareRecipient from 'models/ShareRecipient'
-import { ObjectType } from 'models/IpfsObject'
 import IpfsDirectory from 'models/IpfsDirectory'
-import IpfsFile from 'models/IpfsFile'
-import type { IpfsObject } from './IpfsObject'
+import isIpfs from 'is-ipfs'
 
 const LOCAL_DATA_VERSION = 1
 const PUBLISH_DATA_VERSION = 1
@@ -31,12 +29,14 @@ export type ShareStateType = $Keys<typeof ShareState>
  *
  * Downloading --> Paused : pause()
  * Paused --> Downloading : start()
+ * Paused --> Sharing : download done
  *
  * Paused --> Available : abort()
  *
  * [*] --> Sharing : created a Share locally
  *
  * Downloading --> Sharing : download done
+ * Sharing --> Available : data lost
  *
  * @enduml
  */
@@ -45,26 +45,28 @@ export const writable = {
   dataVersion: 'dataVersion',
   id: 'id',
   hash: 'hash',
-  author: 'author',
+  authorPubkey: 'authorPubkey',
   title: 'title',
   description: 'description',
   status: 'status',
   content: 'content',
   recipients: 'recipients',
-  favorite: 'favorite'
+  favorite: 'favorite',
+  outputPath: 'outputPath'
 }
 
 export const ShareRecord = Record({
   dataVersion: LOCAL_DATA_VERSION,
   id: null,
   hash: null,
-  author: null,
+  authorPubkey: null,
   title: null,
   description: null,
   status: null,
   content: null,
   recipients: Map(),
-  favorite: false
+  favorite: false,
+  outputPath: null
 }, 'Share')
 
 export default class Share extends ShareRecord {
@@ -72,18 +74,19 @@ export default class Share extends ShareRecord {
   // local identifier
   id: number
   hash: ?string
-  // (author == null) mean that the user is the author
-  author: ?Contact
+  // (authorPubkey == null) mean that the user is the author
+  authorPubkey: ?string
   title: string
   description: string
   status: ShareStateType
   content: ?IpfsDirectory
   recipients: Map<string,ShareRecipient>
   favorite: boolean
+  outputPath: ?string
 
   static create(author: ?Contact, title: string, description: ?string = null) {
     return new this().withMutations(share => share
-      .set(writable.author, author)
+      .set(writable.authorPubkey, author ? author.pubkey : null)
       .set(writable.title, title)
       .set(writable.description, description)
       .set(writable.status, ShareState.AVAILABLE)
@@ -97,14 +100,18 @@ export default class Share extends ShareRecord {
       throw 'Unexpected share data version'
     }
 
-    const _recipients = Set(
-      recipients.map(({pubkey}) => ShareRecipient.create(pubkey))
+    if(!isIpfs.multihash(hash)) {
+      throw 'invalid hash'
+    }
+
+    const _recipients = Map(
+      recipients.map(({pubkey}) => [pubkey, ShareRecipient.create(pubkey)])
     )
 
     return new this().withMutations(share => share
       .set(writable.hash, hash)
       .set(writable.status, ShareState.AVAILABLE)
-      .set(writable.author, author)
+      .set(writable.authorPubkey, author)
       .set(writable.title, title)
       .set(writable.description, description || '')
       .set(writable.content, IpfsDirectory.create(content))
@@ -120,7 +127,7 @@ export default class Share extends ShareRecord {
 
     return {
       dataVersion: PUBLISH_DATA_VERSION,
-      author: this.author ? this.author.pubkey : profile.pubkey,
+      author: this.isAuthor ? this.authorPubkey : profile.pubkey,
       title: this.title,
       description: this.description,
       content: this.content.hash,
@@ -140,27 +147,31 @@ export default class Share extends ShareRecord {
     return this.content.sizeLocal
   }
 
-  get metadataLocal() {
-    return this.content.metadataLocal
+  get metadataLocal() : boolean {
+    return this.content && this.content.metadataLocal
   }
 
-  get isAuthor() {
-    return this.author === null
+  get isLocal() : boolean {
+    return this.metadataLocal && this.content.isLocal
   }
 
-  get isAvailable() {
+  get isAuthor() : boolean {
+    return this.authorPubkey === null
+  }
+
+  get isAvailable() : boolean {
     return this.status === ShareState.AVAILABLE
   }
 
-  get isDownloading() {
+  get isDownloading() : boolean {
     return this.status === ShareState.DOWNLOADING
   }
 
-  get isPaused() {
+  get isPaused() : boolean {
     return this.status === ShareState.PAUSED
   }
 
-  get isSharing() {
+  get isSharing() : boolean {
     return this.status === ShareState.SHARING
   }
 

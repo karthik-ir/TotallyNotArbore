@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
 import styles from './ContactDetail.css'
-import { LabelSwitch } from 'material-ui/Switch';
+import { FormControlLabel } from 'material-ui/Form'
+import Switch from 'material-ui/Switch'
 import Button from 'material-ui/Button'
 import Typography from 'material-ui/Typography'
 import Dialog, {
@@ -8,7 +9,7 @@ import Dialog, {
   DialogContent,
   DialogContentText,
   DialogTitle,
-} from 'material-ui/Dialog';
+} from 'material-ui/Dialog'
 import Contact, { ContactStatus } from 'models/Contact'
 import Pubkey from 'components/common/Pubkey'
 import InsetText from 'components/common/InsetText'
@@ -18,8 +19,10 @@ class ContactDetail extends Component {
 
   props: {
     contact: Contact,
+    isInDirectory: boolean,
     onPrivacyChange: (Contact, boolean) => any,
     onDeleteClickGenerator: (Contact) =>  any,
+    onAddClickGenerator: (Contact) => any,
   }
 
   state = {
@@ -42,6 +45,13 @@ class ContactDetail extends Component {
     })
   }
 
+  handleDeleteContact() {
+    this.setState({
+      confirmOpen: false,
+    })
+    this.props.onDeleteClickGenerator(this.props.contact)()
+  }
+
   render() {
     const contact: Contact = this.props.contact
 
@@ -59,9 +69,8 @@ class ContactDetail extends Component {
 
         <InsetText text={contact.bio} placeholder='No biography' />
 
-        <LabelSwitch
-          checked={contact.privacyHidden}
-          onChange={::this.handlePrivacyChange}
+        <FormControlLabel
+          control={<Switch checked={contact.privacyHidden} onChange={::this.handlePrivacyChange}/>}
           label="Hidden"
         />
 
@@ -69,9 +78,17 @@ class ContactDetail extends Component {
           <Typography>Last ping: { contact.lastPongDelay } ms</Typography>
         }
 
-        <Button raised primary onClick={::this.handleOpenConfirm}>
-          Delete contact
-        </Button>
+        { this.props.isInDirectory &&
+          <Button raised color='primary' onClick={::this.handleOpenConfirm}>
+            Delete contact
+          </Button>
+        }
+
+        { !this.props.isInDirectory &&
+          <Button raised color='primary' onClick={this.props.onAddClickGenerator(contact)}>
+            Add contact
+          </Button>
+        }
 
         { this.state.confirmOpen &&
           <Dialog open={true} onRequestClose={this.handleCloseConfirm}>
@@ -82,8 +99,8 @@ class ContactDetail extends Component {
               </DialogContentText>
             </DialogContent>
             <DialogActions>
-              <Button onClick={::this.handleCloseConfirm} primary>Cancel</Button>
-              <Button onClick={this.props.onDeleteClickGenerator(this.props.contact)} primary>Confirm</Button>
+              <Button onClick={::this.handleCloseConfirm} color='primary'>Cancel</Button>
+              <Button onClick={::this.handleDeleteContact} color='primary'>Confirm</Button>
             </DialogActions>
           </Dialog>
         }
@@ -92,4 +109,4 @@ class ContactDetail extends Component {
   }
 }
 
-export default ContactDetail;
+export default ContactDetail

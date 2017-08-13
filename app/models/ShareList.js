@@ -52,7 +52,6 @@ export default class ShareList extends ShareListRecord {
     }
 
     return this.list.filter((share : Share) => (
-      (share.author ? strContain(share.author.identity, this.search) : false) ||
       strContain(share.description, this.search) ||
       strContain(share.title,       this.search)
     ))
@@ -68,7 +67,7 @@ export default class ShareList extends ShareListRecord {
       case ShareListFilter.ACTIVE:
         return this.searched.filter((x: Share) => x.isDownloading || x.isPaused)
       case ShareListFilter.SHARING:
-        return this.searched.filter((x: Share) => x.isAuthor || x.isSharing)
+        return this.searched.filter((x: Share) => x.isAuthor && x.isSharing)
       case ShareListFilter.FAV:
         return this.searched.filter((x : Share) => x.favorite)
     }
@@ -108,7 +107,7 @@ export default class ShareList extends ShareListRecord {
 
   // Return the number sharing (author or not, available locally) Share
   get sharing() : number {
-    return this.list.filter((x: Share) => x.isAuthor || x.isSharing).count()
+    return this.list.filter((x: Share) => x.isAuthor && x.isSharing).count()
   }
 
   // Return the number of favorited Share

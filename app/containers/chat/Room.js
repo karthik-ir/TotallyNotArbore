@@ -37,7 +37,7 @@ class RoomContainer extends Component {
 
     if(event.keyCode === 13 && this.state.promptValue !== '') {
       this.props.dispatch(chat.sendChat(
-        contacts.findContact(ui.selectedChat),
+        contacts.findContactInDirectory(ui.selectedChat),
         this.state.promptValue
       ))
       this.setState({ promptValue: ''})
@@ -67,7 +67,7 @@ class RoomContainer extends Component {
 
     return (
       <Room
-        ref={(room) => { this.room = room }}
+        ref={(room) => { this.room = room ? room.innerRef : room }}
         selectedRoom={ui.selectedChat ? chatRoomList.findRoom(ui.selectedChat) : null}
         contacts={contacts}
         profile={profile}

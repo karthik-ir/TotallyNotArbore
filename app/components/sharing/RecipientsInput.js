@@ -2,38 +2,29 @@
 import React, { Component } from 'react'
 import styles from './RecipientsInput.css'
 import Chip from 'material-ui/Chip'
-import Input from 'material-ui/Input'
 import { FormControl, FormLabel } from 'material-ui/Form'
 import Avatar from 'components/common/Avatar'
 import Contact from 'models/Contact'
 import ContactList from 'models/ContactList'
+import RecipientsInputAutocomplete from 'components/sharing/RecipientsInputAutocomplete'
 
 class RecipientsInput extends Component {
-  recipientsInput
+  recipientsInput: any
 
   props: {
     contactList: ContactList,
   }
 
-  handleRecipientInputChange(e) {
+  handleRecipientSelect(contact: Contact) {
     const { input: { value, onChange} } = this.props
-    if (e.key === 'Enter') {
-      if(!e.target.value) {
-        e.preventDefault()
-        return
-      }
-      const suggest = this.props.contactList.autoComplete(e.target.value)
 
-      // Use Set to deduplicate the elements
-      const newRecipients = [ ...new Set( [].concat(
-        ...value,
-        suggest
-      ))]
+    // Use Set to deduplicate the elements
+    const newRecipients = [ ...new Set( [].concat(
+      ...value,
+      contact
+    ))]
 
-      onChange(newRecipients)
-      e.target.value = ''
-      e.preventDefault()
-    }
+    onChange(newRecipients)
   }
 
   handleRemoveContact(pubkey: string) {
@@ -46,7 +37,7 @@ class RecipientsInput extends Component {
   }
 
   render() {
-    const { label, input: { value }, meta: { touched, error } } = this.props
+    const { contactList, label, input: { value }, meta: { touched, error } } = this.props
     return (
       <FormControl error={touched && (error != null)} style={{ marginTop: '10px' }} >
         <FormLabel>{label}</FormLabel>
@@ -62,12 +53,10 @@ class RecipientsInput extends Component {
             ))
           }
 
-          {/* TODO: need https://github.com/callemall/material-ui/issues/4783 */}
-          <Input
-            ref={(input) => { this.recipientsInput = input }}
-            disableUnderline
-            className={styles.recipientsInput}
-            onKeyPress={ ::this.handleRecipientInputChange }
+          <RecipientsInputAutocomplete
+            inputRef={(autocomplete) => { if(autocomplete) { this.recipientsInput = autocomplete.input }}}
+            contactList={contactList}
+            onRecipientSelect={::this.handleRecipientSelect}
           />
         </div>
       </FormControl>

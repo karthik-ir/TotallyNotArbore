@@ -1,6 +1,6 @@
 // @flow
 import { createAction } from 'redux-actions'
-import ShareList from 'models/ShareList'
+import ShareList, { ShareListFilter } from 'models/ShareList'
 import Share, { writable as shareWritable } from 'models/Share'
 import ContactList from 'models/ContactList'
 import Profile from 'models/Profile'
@@ -9,7 +9,12 @@ import type { Store } from 'utils/types'
 import createProtocol from 'ipfs/createProtocol'
 import * as shareActions from 'actions/share'
 import * as contactListActions from 'actions/contactList'
+import * as uiActions from 'actions/ui'
 import Contact from 'models/Contact'
+import isIpfs from 'is-ipfs'
+import { Page } from 'models/UiState'
+import { ipcRenderer } from 'electron'
+import { showMainWindow } from 'utils/constants'
 
 export const setFilter = createAction('SHARELIST_FILTER_SET',
   (filter: ShareListFilterType) => (filter)
@@ -51,14 +56,13 @@ export function fetchShareDescription(hash: string) {
   return async function(dispatch, getState) {
     const shareList: ShareList = getState().shareList
 
-    let share: Share = shareList.findByHash(hash)
+    let share: ?Share = shareList.findByHash(hash)
     if(share) {
       console.log(`Share ${hash} already know`)
       return share
     }
 
-    share = await dispatch(shareActions.fetchShareDescription(hash))
-    share = await dispatch(storeShare(share))
+    share = await dispatch(shareActions.fetchDescription(hash))
 
     return share
   }
@@ -149,7 +153,7 @@ function handleQueryShares(dispatch, getState, payload) {
 
   const state: Store = getState()
   const contactList: ContactList = state.contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a shareList query from unknow contact ' + from)
@@ -173,17 +177,20 @@ async function handleSharesReply(dispatch, getState, payload) {
 
   const state: Store = getState()
   const contactList: ContactList = state.contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a shareList from unknow contact ' + from)
     return
   }
 
-  shares.forEach(async (hash: string) => {
-    const share: Share = await dispatch(fetchShareDescription(hash))
-    dispatch(storeShare(share))
-  })
+  await Promise.all(shares.map(async (hash: string) => {
+    if(!isIpfs.multihash(hash)) {
+      throw 'invalid hash'
+    }
+
+    await handleNewShare(dispatch, contact, hash)
+  }))
 
   dispatch(contactListActions.fetchAllMissingContacts())
 }
@@ -195,7 +202,7 @@ export function sendShare(share: Share, pubkey: string) {
 
     // Publish the share if needed
     if(! share.hash) {
-      share = await dispatch(shareActions.publishShare(share))
+      share = await dispatch(shareActions.publish(share))
     }
 
     const data = protocol.sharePush(profile, share.hash)
@@ -208,20 +215,57 @@ async function handleSharePush(dispatch, getState, payload) {
 
   const state: Store = getState()
   const contactList: ContactList = state.contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a share notification from unknow contact ' + from)
     return
   }
 
-  dispatch(storeShare(await dispatch(fetchShareDescription(hash))))
+  if(!isIpfs.multihash(hash)) {
+    throw 'invalid hash'
+  }
 
+  // Send ACK
   const profile = getState().profile
   const data = protocol.shareAck(profile, hash)
   dispatch(pubsub.send(contact.sharesPubsubTopic, data))
 
+
+  const shareList: ShareList = state.shareList
+  const storedShare: ?Share = shareList.findByHash(hash)
+
+  if(storedShare) {
+    console.log('Got a share notification that we already knew: ' + storedShare.title)
+    return
+  }
+
+  await handleNewShare(dispatch, contact, hash)
+
   dispatch(contactListActions.fetchAllMissingContacts())
+}
+
+// Helper to factorize the handling code for a new incoming Share
+async function handleNewShare(dispatch, contact: Contact, hash: string) {
+  let share: Share = await dispatch(fetchShareDescription(hash))
+  share = await dispatch(storeShare(share))
+
+  /// #if isElectron
+  const notification = new Notification(`New share from ${contact.identity}`, {
+    icon: contact.avatarUrl,
+    body: share.title,
+    requireInteraction: true
+  })
+
+  // Show the share when the user click on the notification
+  notification.onclick = () => {
+    dispatch(uiActions.setPage(Page.SHARING))
+    dispatch(setFilter(ShareListFilter.AVAILABLE))
+    dispatch(setSearch(''))
+    dispatch(setSelected(share.id))
+    ipcRenderer.send(showMainWindow)
+  }
+  /// #endif
 }
 
 function handleShareAck(dispatch, getState, payload) {
@@ -229,7 +273,7 @@ function handleShareAck(dispatch, getState, payload) {
 
   const state: Store = getState()
   const contactList: ContactList = state.contactList
-  const contact = contactList.findContact(from)
+  const contact = contactList.findContactInDirectory(from)
 
   if(!contact) {
     console.log('Got a share notification ack from unknow contact ' + from)
@@ -237,15 +281,15 @@ function handleShareAck(dispatch, getState, payload) {
   }
 
   const shareList: ShareList = state.shareList
-  const share: Share = shareList.findByHash(hash)
+  const share: ?Share = shareList.findByHash(hash)
 
   if(!share) {
     console.log('Got a share notification ack for an unknow share ' + hash)
     return
   }
 
-  if(share.author) {
-    console.log('Got a share notification for a Share that we didn\'t authored')
+  if(!share.isAuthor) {
+    console.log('Got a share notification ACK for a Share that we didn\'t authored')
     return
   }
   if(!share.hasRecipient(contact.pubkey)) {
@@ -253,5 +297,5 @@ function handleShareAck(dispatch, getState, payload) {
     return
   }
 
-  dispatch(shareActions.setRecipientNotified(share.id, contact.pubkey))
+  dispatch(shareActions.setRecipientNotified(share, contact.pubkey))
 }

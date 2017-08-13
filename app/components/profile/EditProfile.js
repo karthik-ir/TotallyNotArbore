@@ -42,7 +42,7 @@ class EditProfile extends Component {
         <FormLabel>Avatar</FormLabel>
         <div className={styles.avatarEditor}>
           <AvatarEditor
-            ref={(avatarEditor) => { this.avatarEditor = avatarEditor }}
+            innerRef={(avatarEditor) => { if(avatarEditor) { this.avatarEditor = avatarEditor }}}
             placeholder={this.props.initialValues.avatar}
             onPristineChanged={::this.handlePristineChanged}
           />
@@ -63,14 +63,14 @@ class EditProfile extends Component {
           label='Repeat passphrase'
           type='password'
         />
-        <Field name='bio' component={renderTextField} label='Bio' multiline rows="6"/>
+        <Field name='bio' component={renderTextField} label='Bio' multiline rows='6' placeholder='Who are you ?'/>
 
         { error && <Error>{error}</Error>}
 
         <div className={styles.buttons}>
           <Button raised onClick={onCancelClick} disabled={waiting}>Cancel</Button>
           <Button
-            raised primary
+            raised color='primary'
             type='submit'
             disabled={(pristine && avatarPristine) || submitting || waiting}
           >

@@ -47,13 +47,13 @@ class NewProfile extends Component {
         <div className={styles.row} >
           <div className={styles.column} >
             <FormLabel>Avatar</FormLabel>
-            <AvatarEditor ref={(avatarEditor) => { this.avatarEditor = avatarEditor }} />
+            <AvatarEditor innerRef={(avatarEditor) => { if(avatarEditor) { this.avatarEditor = avatarEditor }}} />
           </div>
           <div className={styles.column}>
             <Field name='identity' component={renderTextField} required label='Identity'/>
             <Field name='passphrase' component={renderTextField} required label='Passphrase' type='password'/>
             <Field name='passphrase2' component={renderTextField} required label='Repeat passphrase' type='password'/>
-            <Field name='bio' component={renderTextField} label='Bio' multiline rows="4"/>
+            <Field name='bio' component={renderTextField} label='Bio' multiline rows="4" placeholder='Who are you ?'/>
           </div>
         </div>
 
@@ -63,7 +63,7 @@ class NewProfile extends Component {
 
         <div className={styles.buttons}>
           <Button raised onClick={this.props.onCancelClick} disabled={waiting}>Cancel</Button>
-          <Button raised primary type='submit' disabled={pristine || submitting || waiting}>
+          <Button raised color='primary' type='submit' disabled={pristine || submitting || waiting}>
             { waiting && <FontAwesome name='cog' spin /> }
             Submit
           </Button>
@@ -84,7 +84,7 @@ const validate = (values, props) => {
   })
 
   if(values.passphrase !== values.passphrase2) {
-    errors['passphrase2'] = 'Both passphrases should be equals'
+    errors['passphrase2'] = 'Both passphrases should match'
   }
 
   if(props.forbiddenIdentities.includes(values.identity)) {

@@ -3,7 +3,6 @@ import { Record, Map, Set, List } from 'immutable'
 import Contact from './Contact'
 import ShareList from 'models/ShareList'
 import ChatRoomList from 'models/ChatRoomList'
-import ChatRoom from 'models/ChatRoom'
 import Share from 'models/Share'
 
 export const LOCAL_DATA_VERSION = 1
@@ -49,7 +48,7 @@ export default class ContactList extends ContactListRecord {
   follower: Set<string>
 
   // Find a contact by its public key in the directory
-  findContact(pubkey: string) : ?Contact {
+  findContactInDirectory(pubkey: string) : ?Contact {
     return this.directory.has(pubkey) ? this.pool.get(pubkey, null) : null
   }
 
@@ -60,7 +59,7 @@ export default class ContactList extends ContactListRecord {
 
   get directoryMapped() {
     return this.directory.valueSeq()
-      .map((pubkey: string) => this.findContact(pubkey))
+      .map((pubkey: string) => this.findContactInDirectory(pubkey))
   }
 
   // Return a list of contacts that match the search pattern
@@ -73,13 +72,18 @@ export default class ContactList extends ContactListRecord {
   // Return the selected contact, if any
   get selected() : ?Contact {
     return this.selectedPubkey
-      ? this.findContact(this.selectedPubkey)
+      ? this.findContactInPool(this.selectedPubkey)
       : null
   }
 
   // Return true if the given pubkey is present in the searched contacts
   contactInSearched(pubkey: string) : boolean {
     return this.searched.some((contact: Contact) => contact.pubkey === pubkey)
+  }
+
+  // Return true if the selected contact is present in the directory
+  selectedInDirectory() : boolean {
+    return this.selectedPubkey && this.directory.has(this.selectedPubkey)
   }
 
   // Build an autocomplete list with a string pattern
@@ -142,8 +146,8 @@ export default class ContactList extends ContactListRecord {
     })
 
     shareList.list.forEach((share: Share) => {
-      if(share.author && !this.pool.has(share.author.pubkey)) {
-        result.add(share.author.pubkey)
+      if(share.authorPubkey && !this.pool.has(share.authorPubkey)) {
+        result.add(share.authorPubkey)
       }
       share.recipients.keySeq().forEach((pubkey: string) => {
         if(!this.pool.has(pubkey)) {
@@ -152,7 +156,7 @@ export default class ContactList extends ContactListRecord {
       })
     })
 
-    return Array.from(result.values())
+    return [...result]
   }
 
   // Return an array of pubkey that can be shared
